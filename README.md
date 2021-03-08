@@ -1,3 +1,5 @@
+![CI workflow](https://github.com/swaagie/envoy-rbi-filter/actions/workflows/ci.yml/badge.svg)
+
 # Envoy RBI wasm filter
 
 **This filter is not ready for use yet**
