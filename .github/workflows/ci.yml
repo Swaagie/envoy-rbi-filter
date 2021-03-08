@@ -1,4 +1,4 @@
-name: Cargo test main branch
+name: CI main
 on:
   pull_request:
   push:
