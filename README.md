@@ -4,7 +4,8 @@
 
 **This filter is not ready for use yet**
 
-WASM based filter to provide Reponse Body Injection (RBI).
+Envoy filter written in Rust to provide Reponse Body Injection (RBI).
+This requires [Envoy's WASM filters](https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/wasm_filter.html?highlight=wasm)
 
 Tests to add:
 - benchmarks
