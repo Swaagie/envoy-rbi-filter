@@ -94,7 +94,6 @@ fn inject(src: &str, target: &str, fragment: &str) -> Result<String, std::string
     let mut result = vec![];
 
     serialize(&mut result, &document, Default::default())
-        .ok()
         .expect("failed to serialize to HTML");
 
     String::from_utf8(result)

@@ -1,0 +1,30 @@
+name: Cargo test main branch
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+env:
+  RUST_BACKTRACE: 1
+
+jobs:
+  test:
+    name: Cargo test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        rust: [stable, nightly]
+    steps:
+    - uses: hecrj/setup-rust-action@v1
+      with:
+        components: clippy, rustfmt
+        rust-version: ${{ matrix.rust }}
+    - uses: actions/checkout@v2
+    - name: Run tests
+      - run: cargo test --verbose
+    - name: Clippy lint
+      - run: cargo clippy --all-targets --verbose
+    - name: Verify code format
+      - run: cargo fmt --all -- --check
