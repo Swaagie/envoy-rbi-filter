@@ -19,7 +19,8 @@ use html5ever::tendril::*;
 use proxy_wasm::traits::*;
 use proxy_wasm::types::*;
 
-#[no_mangle]
+// #[no_mangle]
+// Fails Linux compile, just let it mangle it for now
 pub fn _start() {
     proxy_wasm::set_log_level(LogLevel::Trace);
     proxy_wasm::set_http_context(|_, _| -> Box<dyn HttpContext> {
