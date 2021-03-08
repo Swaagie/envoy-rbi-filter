@@ -1,31 +1,31 @@
- #[macro_use] extern crate html5ever;
+#[macro_use]
+extern crate html5ever;
 
 mod parser;
 mod serializer;
 
-use parser::{Dom, Handle, NodeData};
-use serializer::{SerializableHandle};
-
-use std::collections::{VecDeque};
+use std::collections::VecDeque;
 use std::default::Default;
 use std::str;
-use log::{trace};
 
-use html5ever::{parse_document, parse_fragment, serialize, QualName, LocalName};
-use html5ever::interface::tree_builder::{NodeOrText};
+use log::trace;
+
+use html5ever::interface::tree_builder::NodeOrText;
 use html5ever::interface::TreeSink;
 use html5ever::tendril::*;
+use html5ever::{parse_document, parse_fragment, serialize, LocalName, QualName};
 
 use proxy_wasm::traits::*;
 use proxy_wasm::types::*;
+
+use parser::{Dom, Handle, NodeData};
+use serializer::SerializableHandle;
 
 // #[no_mangle]
 // Fails Linux compile, just let it mangle it for now
 pub fn _start() {
     proxy_wasm::set_log_level(LogLevel::Trace);
-    proxy_wasm::set_http_context(|_, _| -> Box<dyn HttpContext> {
-        Box::new(RBI {})
-    });
+    proxy_wasm::set_http_context(|_, _| -> Box<dyn HttpContext> { Box::new(RBI {}) });
 }
 
 struct RBI {}
@@ -43,9 +43,7 @@ impl HttpContext for RBI {
         trace!("In WASM: {}", body);
         let body = match inject(body, "html", "<h1>test</h1>") {
             Ok(result) => result,
-            Err(error) => {
-                panic!("There was a problem parsing the HTML: {:?}", error)
-            }
+            Err(error) => panic!("There was a problem parsing the HTML: {:?}", error),
         };
 
         // Use status code, headers from original
@@ -65,7 +63,13 @@ fn inject(src: &str, target: &str, fragment: &str) -> Result<String, std::string
     ops.push_back(dom.document.clone());
 
     // Unwrap parsed fragment, find better way! Namespace matters for result
-    let fragment = parse_fragment(Dom::default(), Default::default(), QualName::new(None, ns!(xml), LocalName::from("html")), vec![]).one(fragment);
+    let fragment = parse_fragment(
+        Dom::default(),
+        Default::default(),
+        QualName::new(None, ns!(xml), LocalName::from("html")),
+        vec![],
+    )
+    .one(fragment);
     let html = &fragment.document.children.borrow_mut()[0];
     let value = &html.children.borrow_mut()[0].clone();
     dom.remove_from_parent(&value);
@@ -84,7 +88,7 @@ fn inject(src: &str, target: &str, fragment: &str) -> Result<String, std::string
                         if name.local == LocalName::from(target) {
                             dom.append(&handle, NodeOrText::AppendNode(value.clone()));
                         }
-                    },
+                    }
                     _ => {}
                 }
             }
@@ -94,15 +98,18 @@ fn inject(src: &str, target: &str, fragment: &str) -> Result<String, std::string
     let document: SerializableHandle = dom.document.into();
     let mut result = vec![];
 
-    serialize(&mut result, &document, Default::default())
-        .expect("failed to serialize to HTML");
+    serialize(&mut result, &document, Default::default()).expect("failed to serialize to HTML");
 
     String::from_utf8(result)
 }
 
 #[test]
 fn test_hello_world_injection() -> Result<(), std::string::FromUtf8Error> {
-    let output = inject("<html><head></head><body></body></html>", "body", "hello world")?;
+    let output = inject(
+        "<html><head></head><body></body></html>",
+        "body",
+        "hello world",
+    )?;
     assert_eq!(output, "<html><head></head><body>hello world</body></html>");
 
     Ok(())
@@ -110,7 +117,11 @@ fn test_hello_world_injection() -> Result<(), std::string::FromUtf8Error> {
 
 #[test]
 fn test_html_injection() -> Result<(), std::string::FromUtf8Error> {
-    let output = inject("<html><head></head><body><main>Hi there!</main></body></html>", "body", "<script async src=\"https://www.google-analytics.com/analytics.js\"></script>")?;
+    let output = inject(
+        "<html><head></head><body><main>Hi there!</main></body></html>",
+        "body",
+        "<script async src=\"https://www.google-analytics.com/analytics.js\"></script>",
+    )?;
     assert_eq!(output, "<html><head></head><body><main>Hi there!</main><script async=\"\" src=\"https://www.google-analytics.com/analytics.js\"></script></body></html>");
 
     Ok(())
@@ -118,8 +129,15 @@ fn test_html_injection() -> Result<(), std::string::FromUtf8Error> {
 
 #[test]
 fn test_partial_head_injection() -> Result<(), std::string::FromUtf8Error> {
-    let output = inject("<html><head></head><body></body></html>", "head", "<title>Test")?;
-    assert_eq!(output, "<html><head><title>Test</title></head><body></body></html>");
+    let output = inject(
+        "<html><head></head><body></body></html>",
+        "head",
+        "<title>Test",
+    )?;
+    assert_eq!(
+        output,
+        "<html><head><title>Test</title></head><body></body></html>"
+    );
 
     Ok(())
 }

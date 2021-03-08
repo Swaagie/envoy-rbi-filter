@@ -1,15 +1,17 @@
-use std::collections::{HashSet};
-use std::cell::{Cell, RefCell};
-use std::default::Default;
 use std::borrow::Cow;
+use std::cell::{Cell, RefCell};
+use std::collections::HashSet;
+use std::default::Default;
+use std::fmt;
+use std::mem;
 use std::rc::{Rc, Weak};
 use std::str;
-use std::mem;
-use std::fmt;
 
-use html5ever::{Attribute, QualName, ExpandedName};
-use html5ever::interface::tree_builder::{ElementFlags, NodeOrText, QuirksMode, TreeSink, NoQuirks};
+use html5ever::interface::tree_builder::{
+    ElementFlags, NoQuirks, NodeOrText, QuirksMode, TreeSink,
+};
 use html5ever::tendril::*;
+use html5ever::{Attribute, ExpandedName, QualName};
 
 /// The different kinds of nodes in the DOM.
 #[derive(Debug)]
@@ -69,9 +71,7 @@ impl Node {
 
 impl fmt::Debug for Node {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Node")
-         .field("data", &self.data)
-         .finish()
+        f.debug_struct("Node").field("data", &self.data).finish()
     }
 }
 
@@ -90,7 +90,7 @@ impl Default for Dom {
         Dom {
             document: Node::new(NodeData::Document),
             errors: vec![],
-            quirks_mode: NoQuirks
+            quirks_mode: NoQuirks,
         }
     }
 }
@@ -129,7 +129,7 @@ fn append_to_existing_text(prev: &Handle, text: &str) -> bool {
         NodeData::Text { ref contents } => {
             contents.borrow_mut().push_slice(text);
             true
-        },
+        }
         _ => false,
     }
 }
@@ -163,7 +163,11 @@ impl TreeSink for Dom {
             ..
         } = target.data
         {
-            template_contents.borrow().as_ref().expect("not a template element!").clone()
+            template_contents
+                .borrow()
+                .as_ref()
+                .expect("not a template element!")
+                .clone()
         } else {
             panic!("not a template element!")
         }
@@ -221,7 +225,7 @@ impl TreeSink for Dom {
                     if append_to_existing_text(h, &text) {
                         return;
                     }
-                },
+                }
                 _ => (),
             },
             _ => (),
@@ -258,7 +262,7 @@ impl TreeSink for Dom {
                 Node::new(NodeData::Text {
                     contents: RefCell::new(text),
                 })
-            },
+            }
 
             // The tree builder promises we won't have a text node after
             // the insertion point.

@@ -1,11 +1,11 @@
 use crate::parser::{Handle, NodeData};
 
-use std::collections::{VecDeque};
+use std::collections::VecDeque;
 use std::io;
 
-use html5ever::{QualName};
-use html5ever::serialize::{TraversalScope, Serialize, Serializer};
 use html5ever::serialize::TraversalScope::{ChildrenOnly, IncludeNode};
+use html5ever::serialize::{Serialize, Serializer, TraversalScope};
+use html5ever::QualName;
 
 enum SerializeOp {
     Open(Handle),
@@ -28,12 +28,13 @@ impl Serialize for SerializableHandle {
         let mut ops = VecDeque::new();
         match traversal_scope {
             IncludeNode => ops.push_back(SerializeOp::Open(self.0.clone())),
-            ChildrenOnly(_) => ops.extend(self
-                .0
-                .children
-                .borrow()
-                .iter()
-                .map(|h| SerializeOp::Open(h.clone())))
+            ChildrenOnly(_) => ops.extend(
+                self.0
+                    .children
+                    .borrow()
+                    .iter()
+                    .map(|h| SerializeOp::Open(h.clone())),
+            ),
         }
 
         while let Some(op) = ops.pop_front() {
@@ -55,13 +56,11 @@ impl Serialize for SerializableHandle {
                         for child in handle.children.borrow().iter().rev() {
                             ops.push_front(SerializeOp::Open(child.clone()));
                         }
-                    },
+                    }
 
                     NodeData::Doctype { ref name, .. } => serializer.write_doctype(&name)?,
 
-                    NodeData::Text { ref contents } => {
-                        serializer.write_text(&contents.borrow())?
-                    },
+                    NodeData::Text { ref contents } => serializer.write_text(&contents.borrow())?,
 
                     NodeData::Comment { ref contents } => serializer.write_comment(&contents)?,
 
@@ -75,7 +74,7 @@ impl Serialize for SerializableHandle {
 
                 SerializeOp::Close(name) => {
                     serializer.end_elem(name)?;
-                },
+                }
             }
         }
 
