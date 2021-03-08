@@ -13,7 +13,9 @@ use log::trace;
 use html5ever::interface::tree_builder::NodeOrText;
 use html5ever::interface::TreeSink;
 use html5ever::tendril::*;
-use html5ever::{parse_document, parse_fragment, serialize, LocalName, QualName};
+use html5ever::{parse_document, parse_fragment, serialize, QualName};
+
+use string_cache::Atom;
 
 use proxy_wasm::traits::*;
 use proxy_wasm::types::*;
@@ -66,7 +68,7 @@ fn inject(src: &str, target: &str, fragment: &str) -> Result<String, std::string
     let fragment = parse_fragment(
         Dom::default(),
         Default::default(),
-        QualName::new(None, ns!(xml), LocalName::from("html")),
+        QualName::new(None, ns!(xml), Atom::from("html")),
         vec![],
     )
     .one(fragment);
@@ -85,7 +87,7 @@ fn inject(src: &str, target: &str, fragment: &str) -> Result<String, std::string
                 match handle.data {
                     NodeData::Element { ref name, .. } => {
                         // Element local name matches the target, insert fragment.
-                        if name.local == LocalName::from(target) {
+                        if name.local == Atom::from(target) {
                             dom.append(&handle, NodeOrText::AppendNode(value.clone()));
                         }
                     }
