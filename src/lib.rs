@@ -67,36 +67,37 @@ impl HttpContext for ResponseBodyInjectionFilter {
     }
 }
 
+// TODO broken in wasi build
 fn inject(src: &str, target: &str, fragment: &str) -> Result<String, std::string::FromUtf8Error> {
     let mut dom = parse_document(Dom::default(), Default::default()).one(src);
-    // let mut ops: VecDeque<Handle> = VecDeque::new();
-    // ops.push_back(dom.document.clone());
+    let mut ops: VecDeque<Handle> = VecDeque::new();
+    ops.push_back(dom.document.clone());
 
-    // // Unwrap parsed fragment, find better way! Namespace matters for result
-    // let fragment = parse_fragment(
-    //     Dom::default(),
-    //     Default::default(),
-    //     QualName::new(None, Atom::from("html"), Atom::from("html")),
-    //     vec![],
-    // ).one(fragment);
+    // Unwrap parsed fragment, find better way! Namespace matters for result
+    let fragment = parse_fragment(
+        Dom::default(),
+        Default::default(),
+        QualName::new(None, Atom::from("html"), Atom::from("html")),
+        vec![],
+    ).one(fragment);
 
-    // let html = &fragment.document.children.borrow_mut()[0];
-    // let value = &html.children.borrow_mut()[0].clone();
-    // dom.remove_from_parent(value);
+    let html = &fragment.document.children.borrow_mut()[0];
+    let value = &html.children.borrow_mut()[0].clone();
+    dom.remove_from_parent(value);
 
-    // while let Some(handle) = ops.pop_front() {
-    //     // Push any children to the front of the queue for iteration
-    //     for child in handle.children.borrow().iter().rev() {
-    //         ops.push_front(child.clone());
-    //     }
+    while let Some(handle) = ops.pop_front() {
+        // Push any children to the front of the queue for iteration
+        for child in handle.children.borrow().iter().rev() {
+            ops.push_front(child.clone());
+        }
 
-    //     if let NodeData::Element { ref name, .. } = handle.data {
-    //         // Element local name matches the target, insert fragment.
-    //         if name.local == *target {
-    //             dom.append(&handle, NodeOrText::AppendNode(value.clone()));
-    //         }
-    //     };
-    // }
+        if let NodeData::Element { ref name, .. } = handle.data {
+            // Element local name matches the target, insert fragment.
+            if name.local == *target {
+                dom.append(&handle, NodeOrText::AppendNode(value.clone()));
+            }
+        };
+    }
 
     let document: SerializableHandle = dom.document.into();
     let mut result = vec![];
