@@ -58,11 +58,11 @@ impl Serialize for SerializableHandle {
                         }
                     }
 
-                    NodeData::Doctype { ref name, .. } => serializer.write_doctype(&name)?,
+                    NodeData::Doctype { ref name, .. } => serializer.write_doctype(name)?,
 
                     NodeData::Text { ref contents } => serializer.write_text(&contents.borrow())?,
 
-                    NodeData::Comment { ref contents } => serializer.write_comment(&contents)?,
+                    NodeData::Comment { ref contents } => serializer.write_comment(contents)?,
 
                     NodeData::ProcessingInstruction {
                         ref target,

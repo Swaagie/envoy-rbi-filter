@@ -1,13 +1,22 @@
 [package]
 name = "envoy-rbi-filter"
+description = "Envoy Response Body Injection Filter"
 version = "0.1.0"
 authors = ["Martijn Swaagman <martijn@swaagman.online>"]
-edition = "2018"
+edition = "2021"
 license = "MIT"
-license-file = "LICENSE"
+keywords = ["envoy", "response", "body", "injection"]
+exclude = [
+  ".github",
+  "example"
+]
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["cdylib"]
 
 [dependencies]
 html5ever="0.25.1"
-string_cache="0.8.1"
-proxy-wasm = "0.1.2"
-log="0.4.11"
+string_cache="0.8.2"
+proxy-wasm = "0.1.4"
+log="0.4.14"
