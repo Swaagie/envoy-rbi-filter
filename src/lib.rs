@@ -22,7 +22,7 @@ const END: &str = "-->";
 
 #[derive(Debug)]
 struct ResponseBodyInjectionFilter {
-    config: HashMap<String, String>
+    config: HashMap<String, String>,
 }
 
 impl Context for ResponseBodyInjectionFilter {}
@@ -47,11 +47,7 @@ impl HttpContext for ResponseBodyInjectionFilter {
             debug!(target: "RBI", "Updating response body, length {length}");
 
             // Update entire body with new content, length is inferred
-            self.set_http_response_body(
-                0,
-                body_size,
-                body.as_bytes(),
-            );
+            self.set_http_response_body(0, body_size, body.as_bytes());
         }
 
         Action::Continue
@@ -78,7 +74,7 @@ impl RootContext for ResponseBodyInjectionConfig {
 
         match serde_json::from_slice(&configuration) {
             Ok(config) => self.config = config,
-            Err(msg) => panic!("Invalid config {msg}")
+            Err(msg) => panic!("Invalid config {msg}"),
         };
 
         true
@@ -97,32 +93,35 @@ impl RootContext for ResponseBodyInjectionConfig {
 
 // Use configured content to replace SSI echo statements
 fn inject(source: &str, content: &HashMap<String, String>) -> String {
-    source.split(ECHO).map(|s| {
-        match s.contains(END) {
-            true => {
-                let mut echo = s.split(END).collect::<Vec<&str>>();
+    source
+        .split(ECHO)
+        .map(|s| {
+            match s.contains(END) {
+                true => {
+                    let mut echo = s.split(END).collect::<Vec<&str>>();
 
-                // Extract variable name and read from content
-                if let Some(mut variable) = echo[0].trim().split('=').last() {
-                    debug!(target: "RBI", "Found variable {variable} in SSI");
+                    // Extract variable name and read from content
+                    if let Some(mut variable) = echo[0].trim().split('=').last() {
+                        debug!(target: "RBI", "Found variable {variable} in SSI");
 
-                    // Remove wrapping quotes
-                    if variable.contains('"') {
-                        variable = &variable[1..variable.chars().count()-1]
-                    };
+                        // Remove wrapping quotes
+                        if variable.contains('"') {
+                            variable = &variable[1..variable.chars().count() - 1]
+                        };
 
-                    // Read the variable as key, if the key does not exist remove the SSI comment
-                    echo[0] = match content.get(variable) {
-                        Some(new) => new,
-                        None => "",
-                    };
+                        // Read the variable as key, if the key does not exist remove the SSI comment
+                        echo[0] = match content.get(variable) {
+                            Some(new) => new,
+                            None => "",
+                        };
+                    }
+
+                    echo.join("")
                 }
-
-                echo.join("")
-            },
-            false => s.to_string()
-        }
-    }).collect::<String>()
+                false => s.to_string(),
+            }
+        })
+        .collect::<String>()
 }
 
 #[cfg(test)]
@@ -133,21 +132,23 @@ mod test {
     fn test_hello_world_injection() {
         let output = inject(
             "<html><head></head><body><!--#echo var=\"hello\" --></body></html>",
-            &HashMap::from([
-                (String::from("hello"), String::from("<h1>hello world</h1>"))
-            ])
+            &HashMap::from([(String::from("hello"), String::from("<h1>hello world</h1>"))]),
         );
 
-        assert_eq!(output, "<html><head></head><body><h1>hello world</h1></body></html>")
+        assert_eq!(
+            output,
+            "<html><head></head><body><h1>hello world</h1></body></html>"
+        )
     }
 
     #[test]
     fn test_no_injection() {
         let output = inject(
             "<html><head></head><body><!--#echo var=hello --></body></html>",
-            &HashMap::from([
-                (String::from("different"), String::from("<h1>hello world</h1>"))
-            ])
+            &HashMap::from([(
+                String::from("different"),
+                String::from("<h1>hello world</h1>"),
+            )]),
         );
 
         assert_eq!(output, "<html><head></head><body></body></html>")
@@ -169,9 +170,12 @@ mod test {
     fn test_without_quotes_injection() {
         let output = inject(
             "<html><head></head><body><main>Hi there!</main><!--#echo var=script --></body></html>",
-            &HashMap::from([
-                (String::from("script"), String::from("<script async src=\"https://www.google-analytics.com/analytics.js\"></script>"))
-            ]),
+            &HashMap::from([(
+                String::from("script"),
+                String::from(
+                    "<script async src=\"https://www.google-analytics.com/analytics.js\"></script>",
+                ),
+            )]),
         );
 
         assert_eq!(output, "<html><head></head><body><main>Hi there!</main><script async src=\"https://www.google-analytics.com/analytics.js\"></script></body></html>");
@@ -181,9 +185,7 @@ mod test {
     fn test_head_injection() {
         let output = inject(
             "<html><head><!--#echo var=\"title\" --></head><body></body></html>",
-            &HashMap::from([
-                (String::from("title"), String::from("<title>Test</title>"))
-            ]),
+            &HashMap::from([(String::from("title"), String::from("<title>Test</title>"))]),
         );
 
         assert_eq!(
@@ -194,27 +196,36 @@ mod test {
 
     #[test]
     fn test_newline_multi_injection() {
-        let output = inject("
-        <html>
-            <head><!--#echo var=\"title\" --></head>
-            <body>
-                <section><!--#echo var=\"header\" --></section>
-                <section><!--#echo var=\"header\" --></section>
-            </body>
-        </html>",
-        &HashMap::from([
+        let output = inject(
+            "
+                <html>
+                    <head><!--#echo var=\"title\" --></head>
+                    <body>
+                        <section><!--#echo var=\"header\" --></section>
+                        <section><!--#echo var=\"header\" --></section>
+                    </body>
+                </html>
+            ",
+            &HashMap::from([
                 (String::from("title"), String::from("<title>Test</title>")),
-                (String::from("header"), String::from("<h2>Multi header</h2>"))
+                (
+                    String::from("header"),
+                    String::from("<h2>Multi header</h2>"),
+                ),
             ]),
         );
 
-        assert_eq!(output,"
-        <html>
-            <head><title>Test</title></head>
-            <body>
-                <section><h2>Multi header</h2></section>
-                <section><h2>Multi header</h2></section>
-            </body>
-        </html>");
+        assert_eq!(
+            output,
+            "
+                <html>
+                    <head><title>Test</title></head>
+                    <body>
+                        <section><h2>Multi header</h2></section>
+                        <section><h2>Multi header</h2></section>
+                    </body>
+                </html>
+            "
+        );
     }
 }
