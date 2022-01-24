@@ -17,14 +17,24 @@ jobs:
         os: [ubuntu-latest, macOS-latest] # windows-latest doesn't work atm
         rust: [stable, nightly]
     steps:
-    - uses: hecrj/setup-rust-action@v1
-      with:
-        components: clippy, rustfmt
-        rust-version: ${{ matrix.rust }}
     - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: ${{ matrix.rust }}
+        components: rustfmt, clippy
+    - name: Run cargo check
+      uses: actions-rs/cargo@v1
+      with:
+        command: check
     - name: Run tests
-      run: cargo test --verbose
-    - name: Clippy lint
-      run: cargo clippy --all-targets --verbose
+      uses: actions-rs/cargo@v1
+      with:
+        command: test
+    - name: Run clippy
+      uses: actions-rs/cargo@v1
+      with:
+        command: clippy --all-targets --verbose
     - name: Verify code format
-      run: cargo fmt --all -- --check
+      uses: actions-rs/cargo@v1
+      with:
+        command: fmt --all -- --check
