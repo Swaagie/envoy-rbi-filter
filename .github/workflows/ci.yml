@@ -34,12 +34,15 @@ jobs:
     - name: Run clippy
       uses: actions-rs/cargo@v1
       with:
-        command: clippy --all-targets --verbose
+        command: clippy
+        args: --all-targets --verbose
     - name: Verify code format
       uses: actions-rs/cargo@v1
       with:
-        command: fmt --all -- --check
+        command: fmt
+        args: --all -- --check
     - name: Build
       uses: actions-rs/cargo@v1
       with:
-        command: build --target wasm32-wasi --release
+        command: build
+        args: --target wasm32-wasi --release
