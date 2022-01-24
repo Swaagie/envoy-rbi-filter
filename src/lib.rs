@@ -1,54 +1,52 @@
-mod parser;
-mod serializer;
-
-use std::collections::VecDeque;
-use std::default::Default;
+use std::collections::HashMap;
+use std::fmt::Debug;
 use std::str;
 
-use log::trace;
-
-use html5ever::interface::tree_builder::NodeOrText;
-use html5ever::interface::TreeSink;
-use html5ever::tendril::*;
-use html5ever::{parse_document, parse_fragment, serialize, QualName};
-
-use string_cache::Atom;
+use log::debug;
 
 use proxy_wasm::traits::*;
 use proxy_wasm::types::*;
 
-use parser::{Dom, Handle, NodeData};
-use serializer::SerializableHandle;
-
 #[no_mangle]
 pub fn _start() {
     proxy_wasm::set_log_level(LogLevel::Trace);
-    proxy_wasm::set_http_context(|_, _| -> Box<dyn HttpContext> { Box::new(ResponseBodyInjectionFilter {}) });
+    proxy_wasm::set_root_context(|_| -> Box<dyn RootContext> {
+        Box::new(ResponseBodyInjectionConfig {
+            config: HashMap::new(),
+        })
+    });
 }
 
-struct ResponseBodyInjectionFilter {}
+const ECHO: &str = "<!--#echo";
+const END: &str = "-->";
+
+#[derive(Debug)]
+struct ResponseBodyInjectionFilter {
+    config: HashMap<String, String>
+}
 
 impl Context for ResponseBodyInjectionFilter {}
 
 impl HttpContext for ResponseBodyInjectionFilter {
     fn on_http_response_body(&mut self, body_size: usize, end_of_stream: bool) -> Action {
+        // TODO: augment stream rather than waiting for the entire body?
         if !end_of_stream {
             return Action::Pause;
         }
 
-        // Set proper max buffer from content-length
+        // Read the response body and augment using RB
+        debug!(target: "RBI", "Augment body content");
         if let Some(body) = &self.get_http_response_body(0, body_size) {
             let body = str::from_utf8(body).expect("Failed to read body from response");
 
-            // TODO: read configuration and apply injection for each property:value
-            let body = match inject(body, "body", "<h1>Hello from WASM</h1>") {
-                Ok(result) => result,
-                Err(error) => {
-                    trace!("There was a problem parsing the HTML: {error}");
-                    String::from(body)
-                }
-            };
+            // Inject for each property:value from configuration
+            let body = inject(body, &self.config);
 
+            // Update the entire body with the new content
+            let length = body.len();
+            debug!(target: "RBI", "Updating response body, length {length}");
+
+            // Update entire body with new content, length is inferred
             self.set_http_response_body(
                 0,
                 body_size,
@@ -60,51 +58,71 @@ impl HttpContext for ResponseBodyInjectionFilter {
     }
 
     fn on_http_response_headers(&mut self, _: usize) -> Action {
-        self.set_http_response_header("Content-Length", None);
-        self.set_http_response_header("Powered-By", Some("proxy-wasm"));
+        // Remove content-length since it's augmented and let clients decide
+        self.set_http_response_header("content-length", None);
+        self.set_http_response_header("Powered-By", Some("x-envoy-rbi-filter"));
 
         Action::Continue
     }
 }
 
-// TODO broken in wasi build
-fn inject(src: &str, target: &str, fragment: &str) -> Result<String, std::string::FromUtf8Error> {
-    let mut dom = parse_document(Dom::default(), Default::default()).one(src);
-    let mut ops: VecDeque<Handle> = VecDeque::new();
-    ops.push_back(dom.document.clone());
+struct ResponseBodyInjectionConfig {
+    config: HashMap<String, String>,
+}
 
-    // Unwrap parsed fragment, find better way! Namespace matters for result
-    let fragment = parse_fragment(
-        Dom::default(),
-        Default::default(),
-        QualName::new(None, Atom::from("html"), Atom::from("html")),
-        vec![],
-    ).one(fragment);
+impl Context for ResponseBodyInjectionConfig {}
 
-    let html = &fragment.document.children.borrow_mut()[0];
-    let value = &html.children.borrow_mut()[0].clone();
-    dom.remove_from_parent(value);
+impl RootContext for ResponseBodyInjectionConfig {
+    fn on_configure(&mut self, _: usize) -> bool {
+        let configuration: Vec<u8> = self.get_configuration().unwrap_or_default();
 
-    while let Some(handle) = ops.pop_front() {
-        // Push any children to the front of the queue for iteration
-        for child in handle.children.borrow().iter().rev() {
-            ops.push_front(child.clone());
-        }
-
-        if let NodeData::Element { ref name, .. } = handle.data {
-            // Element local name matches the target, insert fragment.
-            if name.local == *target {
-                dom.append(&handle, NodeOrText::AppendNode(value.clone()));
-            }
+        match serde_json::from_slice(&configuration) {
+            Ok(config) => self.config = config,
+            Err(msg) => panic!("Invalid config {msg}")
         };
+
+        true
     }
 
-    let document: SerializableHandle = dom.document.into();
-    let mut result = vec![];
+    fn create_http_context(&self, _: u32) -> Option<Box<dyn HttpContext>> {
+        Some(Box::new(ResponseBodyInjectionFilter {
+            config: self.config.clone(),
+        }))
+    }
 
-    serialize(&mut result, &document, Default::default()).expect("failed to serialize to HTML");
+    fn get_type(&self) -> Option<ContextType> {
+        Some(ContextType::HttpContext)
+    }
+}
 
-    String::from_utf8(result)
+// Use configured content to replace SSI echo statements
+fn inject(source: &str, content: &HashMap<String, String>) -> String {
+    source.split(ECHO).map(|s| {
+        match s.contains(END) {
+            true => {
+                let mut echo = s.split(END).collect::<Vec<&str>>();
+
+                // Extract variable name and read from content
+                if let Some(mut variable) = echo[0].trim().split('=').last() {
+                    debug!(target: "RBI", "Found variable {variable} in SSI");
+
+                    // Remove wrapping quotes
+                    if variable.contains('"') {
+                        variable = &variable[1..variable.chars().count()-1]
+                    };
+
+                    // Read the variable as key, if the key does not exist remove the SSI comment
+                    echo[0] = match content.get(variable) {
+                        Some(new) => new,
+                        None => "",
+                    };
+                }
+
+                echo.join("")
+            },
+            false => s.to_string()
+        }
+    }).collect::<String>()
 }
 
 #[cfg(test)]
@@ -112,60 +130,91 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_hello_world_injection() -> Result<(), std::string::FromUtf8Error> {
+    fn test_hello_world_injection() {
         let output = inject(
-            "<html><head></head><body></body></html>",
-            "body",
-            "hello world",
-        )?;
+            "<html><head></head><body><!--#echo var=\"hello\" --></body></html>",
+            &HashMap::from([
+                (String::from("hello"), String::from("<h1>hello world</h1>"))
+            ])
+        );
 
-        assert_eq!(output, "<html><head></head><body>hello world</body></html>");
-
-        Ok(())
+        assert_eq!(output, "<html><head></head><body><h1>hello world</h1></body></html>")
     }
 
     #[test]
-    fn test_html_injection() -> Result<(), std::string::FromUtf8Error> {
+    fn test_no_injection() {
         let output = inject(
-            "<html><head></head><body><main>Hi there!</main></body></html>",
-            "body",
-            "<script async src=\"https://www.google-analytics.com/analytics.js\"></script>",
-        )?;
+            "<html><head></head><body><!--#echo var=hello --></body></html>",
+            &HashMap::from([
+                (String::from("different"), String::from("<h1>hello world</h1>"))
+            ])
+        );
 
-        assert_eq!(output, "<html><head></head><body><main>Hi there!</main><script async=\"\" src=\"https://www.google-analytics.com/analytics.js\"></script></body></html>");
-
-        Ok(())
+        assert_eq!(output, "<html><head></head><body></body></html>")
     }
 
     #[test]
-    fn test_partial_head_injection() -> Result<(), std::string::FromUtf8Error> {
+    fn test_html_injection() {
         let output = inject(
-            "<html><head></head><body></body></html>",
-            "head",
-            "<title>Test",
-        )?;
+            "<html><head></head><body><main>Hi there!</main><!--#echo var=\"script\" --></body></html>",
+        &HashMap::from([
+                (String::from("script"), String::from("<script async src=\"https://www.google-analytics.com/analytics.js\"></script>"))
+            ]),
+        );
+
+        assert_eq!(output, "<html><head></head><body><main>Hi there!</main><script async src=\"https://www.google-analytics.com/analytics.js\"></script></body></html>");
+    }
+
+    #[test]
+    fn test_without_quotes_injection() {
+        let output = inject(
+            "<html><head></head><body><main>Hi there!</main><!--#echo var=script --></body></html>",
+            &HashMap::from([
+                (String::from("script"), String::from("<script async src=\"https://www.google-analytics.com/analytics.js\"></script>"))
+            ]),
+        );
+
+        assert_eq!(output, "<html><head></head><body><main>Hi there!</main><script async src=\"https://www.google-analytics.com/analytics.js\"></script></body></html>");
+    }
+
+    #[test]
+    fn test_head_injection() {
+        let output = inject(
+            "<html><head><!--#echo var=\"title\" --></head><body></body></html>",
+            &HashMap::from([
+                (String::from("title"), String::from("<title>Test</title>"))
+            ]),
+        );
 
         assert_eq!(
             output,
             "<html><head><title>Test</title></head><body></body></html>"
         );
-
-        Ok(())
     }
 
     #[test]
-    fn test_empty_body() -> Result<(), std::string::FromUtf8Error> {
-        let output = inject(
-            "",
-            "head",
-            "<title>Test</title>",
-        )?;
-
-        assert_eq!(
-            output,
-            "<html><head><title>Test</title></head><body></body></html>"
+    fn test_newline_multi_injection() {
+        let output = inject("
+        <html>
+            <head><!--#echo var=\"title\" --></head>
+            <body>
+                <section><!--#echo var=\"header\" --></section>
+                <section><!--#echo var=\"header\" --></section>
+            </body>
+        </html>",
+        &HashMap::from([
+                (String::from("title"), String::from("<title>Test</title>")),
+                (String::from("header"), String::from("<h2>Multi header</h2>"))
+            ]),
         );
 
-        Ok(())
+        assert_eq!(output,"
+        <html>
+            <head><title>Test</title></head>
+            <body>
+                <section><h2>Multi header</h2></section>
+                <section><h2>Multi header</h2></section>
+            </body>
+        </html>");
     }
 }

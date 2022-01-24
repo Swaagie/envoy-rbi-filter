@@ -35,7 +35,9 @@ static_resources:
                   configuration:
                     "@type": "type.googleapis.com/google.protobuf.StringValue"
                     value: |
-                      {}
+                      {
+                        "hello": "<h1>Hello WASM</h1>"
+                      }
                   vm_config:
                     runtime: "envoy.wasm.runtime.v8"
                     vm_id: "rbi_injection_vm_id"

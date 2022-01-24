@@ -4,6 +4,7 @@ services:
     depends_on:
       - echo-server
     hostname: envoy
+    command: -l debug -c /etc/envoy/envoy.yaml
     ports:
       - "10000:10000"
     volumes:
@@ -14,7 +15,7 @@ services:
 
   echo-server:
     image: swaagie/echo-server:latest
-    command: --body="<html><body></body></html>"
+    command: -p 8080 -b '<html><body><!--#echo var=hello --></body></html>'
     hostname: echo_service
     networks:
       - envoymesh

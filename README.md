@@ -2,8 +2,6 @@
 
 # Envoy Response Body Injection filter
 
-_Note: this Envoy filter is a prove of concept and not production ready_
-
 Envoy filter written in Rust to provide Reponse Body Injection (RBI). This requires [Envoy's WASM filters](https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/wasm_filter.html?highlight=wasm)
 
 ## Build
@@ -28,13 +26,19 @@ cargo build --target wasm32-wasi --release
 To run the example local:
 
 ```sh
-cd example
-docker compose up --build
+cargo build --target wasm32-wasi --release
+docker compose up --build --file ./example/docker-compose.yaml
 ```
 
-Send
+Send the local running cluster traffic:
 
-## Features to add
+```sh
+curl -vvv http://localhost:10000/
 
-- Insert before, only append is supported
-- CSS selector node querying
+# *   Trying ::1...
+# * TCP_NODELAY set
+# ...
+# * Connection #0 to host localhost left intact
+# <html><body><h1>Hello WASM</h1></body></html>
+# * Closing connection 0
+```
