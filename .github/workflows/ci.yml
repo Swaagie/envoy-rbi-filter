@@ -14,7 +14,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: macOS-latest # ubuntu latest doesn't work atm due to _start
+        os: [macOS-latest] # ubuntu latest doesn't work atm due to _start
         rust: [stable, nightly]
     steps:
     - uses: actions/checkout@v2
