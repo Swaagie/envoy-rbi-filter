@@ -14,12 +14,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macOS-latest] # windows-latest doesn't work atm
+        os: macOS-latest # ubuntu latest doesn't work atm due to _start
         rust: [stable, nightly]
     steps:
     - uses: actions/checkout@v2
     - uses: actions-rs/toolchain@v1
       with:
+        target: wasm32-wasi
         toolchain: ${{ matrix.rust }}
         components: rustfmt, clippy
     - name: Run cargo check
@@ -38,3 +39,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: fmt --all -- --check
+    - name: Build
+      uses: actions-rs/cargo@v1
+      with:
+        command: build --target wasm32-wasi --release
