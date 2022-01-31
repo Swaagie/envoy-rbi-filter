@@ -20,6 +20,31 @@ cargo build --target wasm32-wasi --release
 
 ## Usage
 
+Add the WASM filter configuration to `http_filters` as part of Envoy's HTTP Connection Management configuration.
+
+```yaml
+- name: envoy.filters.http.wasm
+	typed_config:
+		"@type": type.googleapis.com/udpa.type.v1.TypedStruct
+		type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+		value:
+			config:
+				name: "rbi_filter"
+				root_id: "rbi_filter_id"
+				configuration:
+					"@type": "type.googleapis.com/google.protobuf.StringValue"
+					value: |
+						{
+							"hello": "<h1>Hello WASM</h1>"
+						}
+				vm_config:
+					runtime: "envoy.wasm.runtime.v8"
+					vm_id: "rbi_injection_vm_id"
+					code:
+						local:
+							filename: "/etc/envoy/envoy_rbi_filter.wasm"
+					configuration: {}
+```
 
 ## Example
 
