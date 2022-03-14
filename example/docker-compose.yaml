@@ -9,7 +9,8 @@ services:
       - "10000:10000"
     volumes:
       - ./envoy.yaml:/etc/envoy/envoy.yaml
-      - ../target/wasm32-wasi/release/envoy_rbi_filter.wasm:/etc/envoy/envoy_rbi_filter.wasm
+      # Use the release build in production
+      - ../target/wasm32-wasi/debug/envoy_rbi_filter.wasm:/etc/envoy/envoy_rbi_filter.wasm
     networks:
       - envoymesh
 
