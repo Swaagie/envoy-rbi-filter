@@ -4,7 +4,7 @@ services:
     depends_on:
       - echo-server
     hostname: envoy
-    command: -l debug -c /etc/envoy/envoy.yaml
+    command: -l ${LOG_LEVEL:-debug} -c /etc/envoy/envoy.yaml
     ports:
       - "10000:10000"
     volumes:

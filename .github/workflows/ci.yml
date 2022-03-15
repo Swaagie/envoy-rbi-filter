@@ -33,10 +33,12 @@ jobs:
           command: test
           args: --lib
       - name: Run integration tests
+        env:
+          LOG_LEVEL: off
         run: |
           cd example
           cargo build --target wasm32-wasi
-          docker compose up
+          docker compose up --detach
           cargo test --test request-e2e
           docker compose down
       - name: Run clippy
