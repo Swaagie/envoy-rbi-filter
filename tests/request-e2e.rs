@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test {
     #[tokio::test]
-    async fn test_request() -> std::result::Result<(), reqwest::Error> {
+    async fn test_e2e_request() -> std::result::Result<(), reqwest::Error> {
         let response = reqwest::get("http://localhost:10000/").await?;
 
         assert_eq!(response.status(), 200);
