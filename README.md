@@ -22,7 +22,7 @@ cargo build --target wasm32-wasi --release
 
 Add the WASM filter configuration to `http_filters` as part of Envoy's HTTP Connection Management configuration.
 
-```yaml
+```
 - name: envoy.filters.http.wasm
 	typed_config:
 		"@type": type.googleapis.com/udpa.type.v1.TypedStruct
@@ -66,4 +66,12 @@ curl -vvv http://localhost:10000/
 # * Connection #0 to host localhost left intact
 # <html><body><h1>Hello WASM</h1></body></html>
 # * Closing connection 0
+```
+
+## Tests
+
+End to end integration tests require the [example to run local](#example).
+
+```sh
+cargo test
 ```
