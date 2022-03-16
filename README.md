@@ -51,7 +51,7 @@ Add the WASM filter configuration to `http_filters` as part of Envoy's HTTP Conn
 To run the example local:
 
 ```sh
-cargo build --target wasm32-wasi --release
+cargo build --target wasm32-wasi
 docker compose up --build --file ./example/docker-compose.yaml
 ```
 
