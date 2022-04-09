@@ -7,15 +7,14 @@ use log::debug;
 use proxy_wasm::traits::*;
 use proxy_wasm::types::*;
 
-#[no_mangle]
-pub fn _initialize() {
+proxy_wasm::main! {{
     proxy_wasm::set_log_level(LogLevel::Trace);
     proxy_wasm::set_root_context(|_| -> Box<dyn RootContext> {
         Box::new(ResponseBodyInjectionConfig {
             config: HashMap::new(),
         })
     });
-}
+}}
 
 const ECHO: &str = "<!--#echo";
 const END: &str = "-->";
@@ -53,7 +52,7 @@ impl HttpContext for ResponseBodyInjectionFilter {
         Action::Continue
     }
 
-    fn on_http_response_headers(&mut self, _: usize) -> Action {
+    fn on_http_response_headers(&mut self, _: usize, _: bool) -> Action {
         // Remove content-length since it's augmented and let clients decide
         self.set_http_response_header("content-length", None);
         self.set_http_response_header("Powered-By", Some("x-envoy-rbi-filter"));
@@ -70,7 +69,7 @@ impl Context for ResponseBodyInjectionConfig {}
 
 impl RootContext for ResponseBodyInjectionConfig {
     fn on_configure(&mut self, _: usize) -> bool {
-        let configuration: Vec<u8> = self.get_configuration().unwrap_or_default();
+        let configuration: Vec<u8> = self.get_plugin_configuration().unwrap_or_default();
 
         match serde_json::from_slice(&configuration) {
             Ok(config) => self.config = config,
