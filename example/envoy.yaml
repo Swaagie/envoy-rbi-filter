@@ -18,7 +18,8 @@ static_resources:
               domains:
               - "*"
               routes:
-              - match: /healthcheck
+              - match: 
+                  path: /healthcheck
                 direct_response:
                   status: 200
                   body:
