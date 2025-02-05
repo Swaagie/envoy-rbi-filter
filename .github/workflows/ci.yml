@@ -15,12 +15,12 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        rust: [stable] # nightly doesn't build yet for wasm32-wasi
+        rust: [stable, nightly]
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
-          target: wasm32-wasi
+          target: wasm32-wasip1
           toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
       - name: Run cargo check
@@ -37,8 +37,14 @@ jobs:
           LOG_LEVEL: off
         run: |
           cd example
-          cargo build --target wasm32-wasi
+          cargo build --target wasm32-wasip1
           docker compose up --detach
+              
+          # Wait for Envoy to start
+          for i in {1..10}; do
+            curl -f http://localhost:10000/healthcheck && break || sleep 5
+          done
+
           cargo test --test request-e2e
           docker compose down
       - name: Run clippy
@@ -55,4 +61,4 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --target wasm32-wasi --release
+          args: --target wasm32-wasip1 --release

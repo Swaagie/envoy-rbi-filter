@@ -7,15 +7,15 @@ Envoy filter written in Rust to provide Reponse Body Injection (RBI). This requi
 ## Build
 
 ```sh
-rustup target add wasm32-wasi
-cargo build --target wasm32-wasi
+rustup target add wasm32-wasip1
+cargo build --target wasm32-wasip1
 ```
 
 Release build
 
 ```sh
-rustup target add wasm32-wasi
-cargo build --target wasm32-wasi --release
+rustup target add wasm32-wasip1
+cargo build --target wasm32-wasip1 --release
 ```
 
 ## Usage
