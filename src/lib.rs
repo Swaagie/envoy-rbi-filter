@@ -22,13 +22,35 @@ const END: &str = "-->";
 #[derive(Debug)]
 struct ResponseBodyInjectionFilter {
     config: HashMap<String, String>,
+    content_type: Option<String>,
 }
 
 impl Context for ResponseBodyInjectionFilter {}
 
 impl HttpContext for ResponseBodyInjectionFilter {
+    fn on_http_response_headers(&mut self, _num_headers: usize, _end_of_stream: bool) -> Action {
+        self.content_type = self.get_http_response_header("content-type");
+
+        // Only augment HTML content
+        if self.content_type != Some("text/html".to_string()) {
+            debug!(target: "RBI", "Skipping non-HTML content, type: {:?}", &self.content_type);
+            return Action::Continue;
+        }
+
+        // Remove content-length since it's augmented and let clients decide
+        self.set_http_response_header("content-length", None);
+        self.set_http_response_header("Powered-By", Some("x-envoy-rbi-filter"));
+
+        Action::Continue
+    }
+
     fn on_http_response_body(&mut self, body_size: usize, end_of_stream: bool) -> Action {
-        // TODO: augment stream rather than waiting for the entire body?
+        // Only augment HTML content
+        if self.content_type != Some("text/html".to_string()) {
+            debug!(target: "RBI", "Skipping non-HTML content, type: {:?}", &self.content_type);
+            return Action::Continue;
+        }
+
         if !end_of_stream {
             return Action::Pause;
         }
@@ -48,14 +70,6 @@ impl HttpContext for ResponseBodyInjectionFilter {
             // Update entire body with new content, length is inferred
             self.set_http_response_body(0, body_size, body.as_bytes());
         }
-
-        Action::Continue
-    }
-
-    fn on_http_response_headers(&mut self, _: usize, _: bool) -> Action {
-        // Remove content-length since it's augmented and let clients decide
-        self.set_http_response_header("content-length", None);
-        self.set_http_response_header("Powered-By", Some("x-envoy-rbi-filter"));
 
         Action::Continue
     }
@@ -82,6 +96,7 @@ impl RootContext for ResponseBodyInjectionConfig {
     fn create_http_context(&self, _: u32) -> Option<Box<dyn HttpContext>> {
         Some(Box::new(ResponseBodyInjectionFilter {
             config: self.config.clone(),
+            content_type: None,
         }))
     }
 

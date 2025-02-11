@@ -16,7 +16,8 @@ services:
 
   echo-server:
     image: swaagie/echo-server:latest
-    command: -p 8080 -b '<html><body><!--#echo var=hello --></body></html>'
+    platform: linux/amd64
+    command: -p 8080 -b '<html><body><!--#echo var=hello --></body></html>' -h 'content-type:text/html'
     hostname: echo_service
     networks:
       - envoymesh
